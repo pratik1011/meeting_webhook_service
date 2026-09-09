@@ -1,4 +1,4 @@
-package ai.soulside.meetingwebhook.kafka;
+package ai.soulside.meetingwebhook.queue;
 
 import ai.soulside.meetingwebhook.model.WebhookPayload;
 import ai.soulside.meetingwebhook.domain.entity.BufferedWebhookEvent;

@@ -1,0 +1,12 @@
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    consumer:
+      auto-offset-reset: earliest
+webhook:
+  kafka:
+    enabled: true
+    raw-topic: meeting-webhooks-raw
+    raw-consumer-group: meeting-webhook-inbox
+    batch-topic: meeting-transcript-batches
+    batch-consumer-group: meeting-transcript-processor

@@ -1,5 +1,8 @@
 package ai.soulside.meetingwebhook.queue;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import ai.soulside.meetingwebhook.domain.entity.ProcessedKafkaBatch;
 import ai.soulside.meetingwebhook.event.MeetingWebhookReceived;
 import ai.soulside.meetingwebhook.repository.ProcessedKafkaBatchRepository;
@@ -14,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @ConditionalOnProperty(name = "webhook.kafka.enabled", havingValue = "true")
 public class KafkaTranscriptBatchConsumer {
+    private static final Logger log = LoggerFactory.getLogger(KafkaTranscriptBatchConsumer.class);
     private final ObjectMapper objectMapper;
     private final ProcessedKafkaBatchRepository processedBatches;
     private final WebhookEventProcessor processor;
@@ -45,9 +49,12 @@ public class KafkaTranscriptBatchConsumer {
         if (processedBatches.existsById(batch.batchId())) {
             return;
         }
+        log.info("Processing transcript batch: batchId={}, meetingId={}, eventCount={}",
+                batch.batchId(), batch.meetingId(), batch.events().size());
         for (var event : batch.events()) {
             processor.process(new MeetingWebhookReceived(event));
         }
         processedBatches.save(new ProcessedKafkaBatch(batch.batchId()));
+        log.info("Processed transcript batch: batchId={}, meetingId={}", batch.batchId(), batch.meetingId());
     }
 }

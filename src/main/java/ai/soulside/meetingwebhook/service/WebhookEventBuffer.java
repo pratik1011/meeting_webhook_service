@@ -1,5 +1,10 @@
 package ai.soulside.meetingwebhook.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import ai.soulside.meetingwebhook.redis.PendingEventIndex;
+
 import ai.soulside.meetingwebhook.model.WebhookPayload;
 import ai.soulside.meetingwebhook.domain.entity.BufferedWebhookEvent;
 import ai.soulside.meetingwebhook.event.BufferedWebhookEventStored;
@@ -12,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class WebhookEventBuffer {
+    private static final Logger log = LoggerFactory.getLogger(WebhookEventBuffer.class);
     private final BufferedWebhookEventRepository events;
     private final PendingEventIndex pendingEventIndex;
     private final ApplicationEventPublisher applicationEvents;
@@ -38,6 +44,8 @@ public class WebhookEventBuffer {
                     payload.event(),
                     serializedPayload));
             pendingEventIndex.add(event);
+            log.info("Buffered webhook event: eventId={}, meetingId={}, sessionId={}, eventType={}",
+                    event.getId(), event.getMeetingId(), event.getSessionId(), payload.event());
             applicationEvents.publishEvent(new BufferedWebhookEventStored(
                     payload.meeting().id(), "meeting.ended".equals(payload.event())));
         } catch (JsonProcessingException exception) {

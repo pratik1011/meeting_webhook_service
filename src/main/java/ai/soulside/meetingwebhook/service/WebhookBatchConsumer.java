@@ -1,5 +1,7 @@
 package ai.soulside.meetingwebhook.service;
 
+import ai.soulside.meetingwebhook.redis.PendingEventIndex;
+
 import ai.soulside.meetingwebhook.domain.entity.BufferedWebhookEvent;
 import ai.soulside.meetingwebhook.event.MeetingWebhookReceived;
 import ai.soulside.meetingwebhook.repository.BufferedWebhookEventRepository;

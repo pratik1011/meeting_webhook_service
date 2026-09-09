@@ -1,4 +1,4 @@
-package ai.soulside.meetingwebhook.service;
+package ai.soulside.meetingwebhook.redis;
 
 import ai.soulside.meetingwebhook.domain.entity.BufferedWebhookEvent;
 import ai.soulside.meetingwebhook.domain.enums.BufferedWebhookEventStatus;

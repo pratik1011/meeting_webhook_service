@@ -1,5 +1,8 @@
 package ai.soulside.meetingwebhook.queue;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import ai.soulside.meetingwebhook.model.WebhookPayload;
 import ai.soulside.meetingwebhook.service.WebhookEventBuffer;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -11,6 +14,7 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "webhook.kafka.enabled", havingValue = "true")
 public class KafkaWebhookConsumer {
+    private static final Logger log = LoggerFactory.getLogger(KafkaWebhookConsumer.class);
     private final ObjectMapper objectMapper;
     private final WebhookEventBuffer buffer;
 
@@ -26,6 +30,8 @@ public class KafkaWebhookConsumer {
     public void consumeRawEvent(String serializedPayload) {
         try {
             WebhookPayload payload = objectMapper.readValue(serializedPayload, WebhookPayload.class);
+            log.info("Consumed raw webhook: meetingId={}, sessionId={}, eventType={}",
+                    payload.meeting().id(), payload.meeting().sessionId(), payload.event());
             buffer.enqueue(payload);
         } catch (JsonProcessingException exception) {
             throw new IllegalArgumentException("Unable to read Kafka webhook payload", exception);

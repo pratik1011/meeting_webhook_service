@@ -29,7 +29,8 @@ public class KafkaTranscriptBatchConsumer {
 
     @KafkaListener(
             topics = "${webhook.kafka.batch-topic:meeting-transcript-batches}",
-            groupId = "${webhook.kafka.batch-consumer-group:meeting-transcript-processor}")
+            groupId = "${webhook.kafka.batch-consumer-group:meeting-transcript-processor}",
+            concurrency = "${webhook.kafka.batch-consumer-concurrency:3}")
     @Transactional
     public void consumeBatch(String serializedBatch) {
         try {

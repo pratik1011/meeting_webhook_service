@@ -21,7 +21,8 @@ public class KafkaWebhookConsumer {
 
     @KafkaListener(
             topics = "${webhook.kafka.raw-topic:meeting-webhooks-raw}",
-            groupId = "${webhook.kafka.raw-consumer-group:meeting-webhook-inbox}")
+            groupId = "${webhook.kafka.raw-consumer-group:meeting-webhook-inbox}",
+            concurrency = "${webhook.kafka.raw-consumer-concurrency:3}")
     public void consumeRawEvent(String serializedPayload) {
         try {
             WebhookPayload payload = objectMapper.readValue(serializedPayload, WebhookPayload.class);

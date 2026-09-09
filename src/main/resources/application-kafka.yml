@@ -8,5 +8,7 @@ webhook:
     enabled: true
     raw-topic: meeting-webhooks-raw
     raw-consumer-group: meeting-webhook-inbox
+    raw-consumer-concurrency: 3
     batch-topic: meeting-transcript-batches
     batch-consumer-group: meeting-transcript-processor
+    batch-consumer-concurrency: 3

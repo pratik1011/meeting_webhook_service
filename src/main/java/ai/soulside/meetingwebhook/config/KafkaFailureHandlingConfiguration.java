@@ -32,28 +32,28 @@ public class KafkaFailureHandlingConfiguration {
 
     @Bean
     NewTopic rawWebhookTopic(
-            @Value("${webhook.kafka.raw-topic}") String topic,
+            @Value("${webhook.kafka.raw-topic:meeting-webhooks-raw}") String topic,
             @Value("${webhook.kafka.partitions:3}") int partitions) {
         return TopicBuilder.name(topic).partitions(partitions).replicas(1).build();
     }
 
     @Bean
     NewTopic transcriptBatchTopic(
-            @Value("${webhook.kafka.batch-topic}") String topic,
+            @Value("${webhook.kafka.batch-topic:meeting-transcript-batches}") String topic,
             @Value("${webhook.kafka.partitions:3}") int partitions) {
         return TopicBuilder.name(topic).partitions(partitions).replicas(1).build();
     }
 
     @Bean
     NewTopic rawWebhookDeadLetterTopic(
-            @Value("${webhook.kafka.raw-topic}") String topic,
+            @Value("${webhook.kafka.raw-topic:meeting-webhooks-raw}") String topic,
             @Value("${webhook.kafka.partitions:3}") int partitions) {
         return TopicBuilder.name(topic + ".DLT").partitions(partitions).replicas(1).build();
     }
 
     @Bean
     NewTopic transcriptBatchDeadLetterTopic(
-            @Value("${webhook.kafka.batch-topic}") String topic,
+            @Value("${webhook.kafka.batch-topic:meeting-transcript-batches}") String topic,
             @Value("${webhook.kafka.partitions:3}") int partitions) {
         return TopicBuilder.name(topic + ".DLT").partitions(partitions).replicas(1).build();
     }

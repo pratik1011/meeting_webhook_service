@@ -5,7 +5,6 @@ import ai.soulside.meetingwebhook.domain.entity.Meeting;
 import ai.soulside.meetingwebhook.domain.entity.Session;
 import ai.soulside.meetingwebhook.domain.enums.SessionStatus;
 import ai.soulside.meetingwebhook.domain.entity.TranscriptSegment;
-import ai.soulside.meetingwebhook.event.MeetingWebhookReceived;
 import ai.soulside.meetingwebhook.repository.MeetingRepository;
 import ai.soulside.meetingwebhook.repository.SessionRepository;
 import ai.soulside.meetingwebhook.repository.TranscriptSegmentRepository;
@@ -30,8 +29,7 @@ public class WebhookEventProcessor {
     }
 
     @Transactional
-    public void process(MeetingWebhookReceived received) {
-        WebhookPayload payload = received.payload();
+    public void process(WebhookPayload payload) {
 
         switch (payload.event()) {
             case "meeting.started" -> start(payload);

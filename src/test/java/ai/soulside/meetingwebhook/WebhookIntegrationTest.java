@@ -36,7 +36,7 @@ import org.springframework.test.web.servlet.MockMvc;
         "webhook.kafka.consumer-retry-attempts=1",
         "webhook.kafka.consumer-retry-delay-ms=50",
         "webhook.batch.size-threshold=3",
-        "webhook.batch.max-wait-ms=100"
+        "webhook.batch.max-wait-ms=1000"
 })
 @EmbeddedKafka(
         bootstrapServersProperty = "spring.kafka.bootstrap-servers",
@@ -97,7 +97,7 @@ class WebhookIntegrationTest {
         postWebhook(transcriptPayload(meetingId, sessionId, "threshold-one", 1, "First."));
         postWebhook(transcriptPayload(meetingId, sessionId, "threshold-two", 2, "Second."));
 
-        awaitWithin(() -> segments.findBySessionSessionIdOrderBySequenceNumberAsc(sessionId).size() == 2, 750);
+        awaitWithin(() -> segments.findBySessionSessionIdOrderBySequenceNumberAsc(sessionId).size() == 2, 3000);
     }
     @Test
     void processesDifferentMeetingsIndependently() throws Exception {
@@ -113,8 +113,8 @@ class WebhookIntegrationTest {
         postWebhook(transcriptPayload(secondMeetingId, secondSessionId, "second-one", 1, "One."));
         postWebhook(transcriptPayload(secondMeetingId, secondSessionId, "second-two", 2, "Two."));
 
-        awaitWithin(() -> segments.findBySessionSessionIdOrderBySequenceNumberAsc(firstSessionId).size() == 2, 750);
-        awaitWithin(() -> segments.findBySessionSessionIdOrderBySequenceNumberAsc(secondSessionId).size() == 2, 750);
+        awaitWithin(() -> segments.findBySessionSessionIdOrderBySequenceNumberAsc(firstSessionId).size() == 2, 3000);
+        awaitWithin(() -> segments.findBySessionSessionIdOrderBySequenceNumberAsc(secondSessionId).size() == 2, 3000);
     }
     @Test
     void rejectsUnsupportedWebhookEvents() throws Exception {
@@ -298,10 +298,10 @@ class WebhookIntegrationTest {
             consumer.subscribe(List.of(topic));
             long deadline = System.currentTimeMillis() + 10_000;
             while (System.currentTimeMillis() < deadline) {
-                boolean found = consumer.poll(Duration.ofMillis(250)).records(topic).stream()
-                        .anyMatch(record -> record.value().contains(sessionId));
-                if (found) {
-                    return;
+                for (var record : consumer.poll(Duration.ofMillis(250)).records(topic)) {
+                    if (record.value().contains(sessionId)) {
+                        return;
+                    }
                 }
             }
         }

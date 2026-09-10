@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ai.soulside.meetingwebhook.domain.entity.ProcessedKafkaBatch;
-import ai.soulside.meetingwebhook.event.MeetingWebhookReceived;
 import ai.soulside.meetingwebhook.repository.ProcessedKafkaBatchRepository;
 import ai.soulside.meetingwebhook.service.WebhookEventProcessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -52,7 +51,7 @@ public class KafkaTranscriptBatchConsumer {
         log.info("Processing transcript batch: batchId={}, meetingId={}, eventCount={}",
                 batch.batchId(), batch.meetingId(), batch.events().size());
         for (var event : batch.events()) {
-            processor.process(new MeetingWebhookReceived(event));
+            processor.process(event);
         }
         processedBatches.save(new ProcessedKafkaBatch(batch.batchId()));
         log.info("Processed transcript batch: batchId={}, meetingId={}", batch.batchId(), batch.meetingId());

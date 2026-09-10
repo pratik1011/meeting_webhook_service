@@ -6,26 +6,54 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import ai.soulside.meetingwebhook.domain.enums.BufferedWebhookEventStatus;
 import ai.soulside.meetingwebhook.repository.BufferedWebhookEventRepository;
 import ai.soulside.meetingwebhook.repository.SessionRepository;
 import ai.soulside.meetingwebhook.repository.TranscriptSegmentRepository;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.test.EmbeddedKafkaBroker;
+import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = {
+        "webhook.kafka.enabled=true",
+        "webhook.kafka.partitions=1",
+        "webhook.kafka.raw-consumer-concurrency=1",
+        "webhook.kafka.batch-consumer-concurrency=1",
+        "webhook.kafka.consumer-retry-attempts=1",
+        "webhook.kafka.consumer-retry-delay-ms=50",
         "webhook.batch.size-threshold=3",
-        "webhook.batch.max-wait-ms=2000",
-        "webhook.batch.poll-delay-ms=20"
+        "webhook.batch.max-wait-ms=100"
 })
+@EmbeddedKafka(
+        bootstrapServersProperty = "spring.kafka.bootstrap-servers",
+        partitions = 1,
+        topics = {
+                "meeting-webhooks-raw",
+                "meeting-transcript-batches",
+                "meeting-webhooks-raw.DLT",
+                "meeting-transcript-batches.DLT"
+        })
 @AutoConfigureMockMvc
 class WebhookIntegrationTest {
+    private static final String BATCH_DLT_TOPIC = "meeting-transcript-batches.DLT";
+
+    @Autowired
+    private EmbeddedKafkaBroker kafkaBroker;
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -140,14 +168,14 @@ class WebhookIntegrationTest {
     }
 
     @Test
-    void recordsAnOutOfOrderTranscriptAsFailedAndStillStartsTheSession() throws Exception {
+    void routesAnOutOfOrderTranscriptToTheBatchDeadLetterTopic() throws Exception {
         String meetingId = UUID.randomUUID().toString();
         String sessionId = UUID.randomUUID().toString();
 
         postWebhook(transcriptPayload(meetingId, sessionId, "early-segment", 1, "Too early."));
-        postWebhook(startedPayload(meetingId, sessionId));
+        awaitDeadLetterEvent(BATCH_DLT_TOPIC, sessionId);
 
-        await(() -> bufferedEvents.countByStatusAndSessionId(BufferedWebhookEventStatus.FAILED, sessionId) == 1);
+        postWebhook(startedPayload(meetingId, sessionId));
         await(() -> sessions.existsById(sessionId));
         assertThat(segments.findBySessionSessionIdOrderBySequenceNumberAsc(sessionId)).isEmpty();
     }
@@ -164,7 +192,7 @@ class WebhookIntegrationTest {
         await(() -> sessions.findById(sessionId)
                 .map(session -> session.getStatus().name().equals("ENDED"))
                 .orElse(false));
-        await(() -> bufferedEvents.countByStatusAndSessionId(BufferedWebhookEventStatus.FAILED, sessionId) == 1);
+        awaitDeadLetterEvent(BATCH_DLT_TOPIC, sessionId);
         assertThat(segments.findBySessionSessionIdOrderBySequenceNumberAsc(sessionId)).isEmpty();
     }
 
@@ -175,7 +203,7 @@ class WebhookIntegrationTest {
 
         postWebhook(endedPayload(meetingId, sessionId));
 
-        await(() -> bufferedEvents.countByStatusAndSessionId(BufferedWebhookEventStatus.FAILED, sessionId) == 1);
+        awaitDeadLetterEvent(BATCH_DLT_TOPIC, sessionId);
         assertThat(sessions.existsById(sessionId)).isFalse();
     }
 
@@ -261,6 +289,24 @@ class WebhookIntegrationTest {
                 """.formatted(meetingId, sessionId);
     }
 
+    private void awaitDeadLetterEvent(String topic, String sessionId) {
+        Map<String, Object> consumerProperties = KafkaTestUtils.consumerProps(
+                "dlt-assertion-" + UUID.randomUUID(), "false", kafkaBroker);
+        consumerProperties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        try (Consumer<String, String> consumer = new DefaultKafkaConsumerFactory<>(
+                consumerProperties, new StringDeserializer(), new StringDeserializer()).createConsumer()) {
+            consumer.subscribe(List.of(topic));
+            long deadline = System.currentTimeMillis() + 10_000;
+            while (System.currentTimeMillis() < deadline) {
+                boolean found = consumer.poll(Duration.ofMillis(250)).records(topic).stream()
+                        .anyMatch(record -> record.value().contains(sessionId));
+                if (found) {
+                    return;
+                }
+            }
+        }
+        throw new AssertionError("No dead-letter event found for session " + sessionId);
+    }
     private void awaitWithin(Condition condition, long timeoutMs) throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (!condition.met() && System.currentTimeMillis() < deadline) {
